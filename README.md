@@ -4,7 +4,7 @@ A watchdog agent for [Claude Desktop](https://claude.ai/download) that monitors 
 
 ## What It Does
 
-Runs as a Claude scheduled task on a configurable interval (default: every 5 minutes) and checks three things:
+Runs as a Claude scheduled task on a configurable interval (default: every 30 minutes) and checks three things:
 
 ### 1. Scheduled Task Health
 Compares each task's `lastRunAt` against its cron schedule to detect missed or overdue runs. Understands weekday-only and weekly schedules so it won't false-alarm on weekends.
@@ -18,7 +18,7 @@ Reads each session's conversation audit log to determine its actual state:
 
 ### 3. Claude.app Process Monitoring
 Verifies the main Electron process is running. If Claude.app is down:
-- Sends an immediate Slack alert
+- Sends an immediate alert via Slack webhook
 - Attempts to auto-restart
 - Confirms recovery
 
@@ -35,7 +35,7 @@ Detects when Claude.app was recently restarted and sends a recovery checklist of
 
 - **macOS** (uses `ps`, `open -a` for process management)
 - **Claude Desktop** with Cowork mode enabled
-- **Slack MCP** configured in Claude (for sending DM alerts)
+- **Slack incoming webhook** URL (for sending bot alerts to a channel)
 - **Scheduled Tasks** enabled in Claude Desktop
 - At least one cowork session created (so the session directory exists)
 
@@ -50,13 +50,13 @@ chmod +x setup.sh
 
 The setup script will:
 1. Auto-detect your Claude session directory
-2. Ask for your Slack user ID (for alert DMs)
+2. Ask for your Slack incoming webhook URL (for bot alerts)
 3. Ask for your preferred check interval
 4. Generate a configured `SKILL.md` and install it to `~/.claude/scheduled-tasks/producer-agent-supervisor/`
 
 Then open Claude Desktop and create the scheduled task:
 
-> Create a scheduled task called `producer-agent-supervisor` with cron `*/5 * * * *` using the SKILL.md already at `~/.claude/scheduled-tasks/producer-agent-supervisor/SKILL.md`
+> Create a scheduled task called `producer-agent-supervisor` with cron `*/30 * * * *` using the SKILL.md already at `~/.claude/scheduled-tasks/producer-agent-supervisor/SKILL.md`
 
 ## How It Works
 
@@ -92,7 +92,7 @@ producer-agent/
 
 - **macOS only** — Process detection uses `ps aux | grep "[/]MacOS/Claude$"`. Would need adaptation for Linux/Windows.
 - **Can't send messages into sessions** — The supervisor can detect that a session is stalled, but it can't directly type into another session. It alerts you via Slack so you can manually resume.
-- **Requires Slack MCP** — Alerts are sent via Slack DM. If you don't have Slack configured, you could adapt the alert step to use another notification method.
+- **Requires Slack incoming webhook** — Alerts are posted via webhook as a bot. Falls back to macOS notifications if the webhook is down. Set one up at https://api.slack.com/apps.
 - **Session directory UUIDs** — The path to session data contains installation-specific UUIDs. The setup script auto-detects these, but they may change if you reinstall Claude.
 
 ## License

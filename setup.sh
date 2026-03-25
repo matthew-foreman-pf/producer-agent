@@ -36,16 +36,27 @@ SESSION_COUNT=$(ls "$SESSION_DIR"/local_*.json 2>/dev/null | wc -l | tr -d ' ')
 echo "   Found $SESSION_COUNT cowork sessions."
 echo ""
 
-# --- 2. Get Slack user ID ---
-echo "To receive alerts, the agent needs your Slack user ID."
-echo "  (Find it in Slack: click your profile → ⋮ → Copy member ID)"
+# --- 2. Get Slack webhook URL ---
+echo "To receive alerts, the agent needs a Slack incoming webhook URL."
+echo "  Set one up at: https://api.slack.com/apps → Create App → Incoming Webhooks"
+echo "  The webhook should point to the channel where you want alerts."
 echo ""
-read -p "Enter your Slack user ID (e.g., U08HJV64MPB): " SLACK_USER_ID
+read -p "Enter your Slack webhook URL (https://hooks.slack.com/services/...): " SLACK_WEBHOOK_URL
 
-if [ -z "$SLACK_USER_ID" ]; then
-    echo "❌ Slack user ID is required for alerts."
+if [ -z "$SLACK_WEBHOOK_URL" ]; then
+    echo "❌ Slack webhook URL is required for alerts."
     exit 1
 fi
+
+# Test the webhook
+echo "Testing webhook..."
+WEBHOOK_RESULT=$(curl -s -X POST "$SLACK_WEBHOOK_URL" -H 'Content-Type: application/json' -d '{"text": ":white_check_mark: Producer Agent webhook connected successfully!"}')
+if [ "$WEBHOOK_RESULT" != "ok" ]; then
+    echo "❌ Webhook test failed: $WEBHOOK_RESULT"
+    echo "   Check the URL and try again."
+    exit 1
+fi
+echo "✅ Webhook works!"
 
 echo ""
 
@@ -57,10 +68,10 @@ echo ""
 
 # --- 4. Choose check frequency ---
 echo "How often should the supervisor check? (in minutes)"
-echo "  Recommended: 5 (catches reboots quickly)"
-echo "  Conservative: 15 (less frequent, still good coverage)"
-read -p "Check interval [5]: " CHECK_INTERVAL
-CHECK_INTERVAL=${CHECK_INTERVAL:-5}
+echo "  Recommended: 15 (catches reboots quickly)"
+echo "  Conservative: 30 (less frequent, still good coverage)"
+read -p "Check interval [30]: " CHECK_INTERVAL
+CHECK_INTERVAL=${CHECK_INTERVAL:-30}
 
 echo ""
 
@@ -72,7 +83,7 @@ mkdir -p "$SKILL_DIR"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 sed \
     -e "s|{{SESSION_DIR}}|$SESSION_DIR|g" \
-    -e "s|{{SLACK_USER_ID}}|$SLACK_USER_ID|g" \
+    -e "s|{{SLACK_WEBHOOK_URL}}|$SLACK_WEBHOOK_URL|g" \
     -e "s|{{USER_NAME}}|$USER_NAME|g" \
     -e "s|{{CHECK_INTERVAL}}|$CHECK_INTERVAL|g" \
     "$SCRIPT_DIR/SKILL.template.md" > "$SKILL_DIR/SKILL.md"
@@ -101,5 +112,5 @@ echo "The supervisor will:"
 echo "  • Check scheduled tasks for missed/overdue runs"
 echo "  • Inspect cowork sessions for stalled work or unanswered questions"
 echo "  • Monitor Claude.app and auto-restart if it crashes"
-echo "  • Alert you via Slack DM when issues are found"
+echo "  • Alert you via Slack webhook when issues are found"
 echo "  • Stay silent when everything is healthy"
